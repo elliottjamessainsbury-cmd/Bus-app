@@ -1,0 +1,6 @@
+# Bus Curtailment Validation Instrument — dependencies
+# Keep this list minimal (see CLAUDE.md "Stack"). sqlite3 is standard library,
+# so it is intentionally not listed here.
+
+requests>=2.31      # HTTP calls to the TfL Unified API
+shapely>=2.0        # polyline/polygon geometry for the Enricher's closure checks
