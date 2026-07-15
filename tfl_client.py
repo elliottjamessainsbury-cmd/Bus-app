@@ -24,7 +24,10 @@ BASE = "https://api.tfl.gov.uk"
 
 # Read the key once, at import time, from the environment. None is acceptable —
 # it just means we call anonymously at the lower rate limit.
-APP_KEY = os.environ.get("TFL_APP_KEY")
+# Normalise as we read it: an unset variable, an empty string, or whitespace
+# all collapse to None (= call anonymously). Doing this once, at the source,
+# keeps get() and has_key() from ever disagreeing about whether we have a key.
+APP_KEY = (os.environ.get("TFL_APP_KEY") or "").strip() or None
 
 # How long (seconds) we wait for TfL before giving up on a single request.
 DEFAULT_TIMEOUT = 15
@@ -41,13 +44,20 @@ class TflError(Exception):
 def get(path, params=None):
     """Make one GET request to the TfL API and return the parsed JSON.
 
-    `path`   — the endpoint path, e.g. "/Line/38/Arrivals" (leading slash).
+    `path`   — the endpoint path, e.g. "/Line/38/Arrivals". A leading slash is
+               optional; "Line/38/Arrivals" works too.
     `params` — optional dict of query-string parameters.
 
     Returns the decoded JSON (a list or dict, depending on the endpoint).
     Raises TflError on network failure, a non-200 status, or non-JSON body,
     so every caller handles failure the same way.
     """
+    # Normalise the path so callers may pass "Line/38/Route" or "/Line/38/Route"
+    # interchangeably — we guarantee exactly one leading slash before BASE.
+    if not isinstance(path, str) or not path.strip():
+        raise TflError("path must be a non-empty string")
+    path = "/" + path.strip().lstrip("/")
+
     # Copy so we never mutate the caller's dict, then attach the key if we have
     # one. TfL accepts the subscription key as the `app_key` query parameter.
     query = dict(params or {})

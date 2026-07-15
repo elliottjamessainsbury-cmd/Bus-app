@@ -17,5 +17,8 @@ venv/
 env/
 
 # --- Local imports / scratch -------------------------------------------
-# Google Form CSV exports land here before import; raw data, not source.
+# Raw Google Form CSV exports are local data, not source — ignore them.
 *.csv
+# ...but allow small, committed CSV fixtures used by tests (the negation must
+# come after the ignore rule above to take effect).
+!tests/fixtures/*.csv
