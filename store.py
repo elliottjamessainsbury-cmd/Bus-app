@@ -79,6 +79,85 @@ def init_db(db_path=None):
     return db_path or config.DB_PATH
 
 
+# The bare column names, in order, derived from the single definition above so
+# the writers/readers below can never drift out of sync with the table.
+COLUMN_NAMES = [name for name, _ in EVENT_COLUMNS]
+
+
+def insert_event(event, db_path=None):
+    """Write one row into the `events` table.
+
+    `event` is a dict mapping column name -> value. You only need to supply the
+    columns you know; any column you leave out is stored as NULL (e.g. a manual
+    observation has no `vehicle_id`, the Enricher fills `near_closure` in later).
+
+    Returns the `event_id` written, so callers can log/reference it.
+
+    We build the statement from COLUMN_NAMES and pass the values *separately* as
+    parameters (the `?` placeholders) rather than pasting them into the SQL
+    string. That is "parameterised" querying — it keeps values as data, so a
+    stray quote or odd character in a stop name can never corrupt the query
+    [this is also the standard defence against SQL injection].
+    """
+    unknown = set(event) - set(COLUMN_NAMES)
+    if unknown:
+        # Fail loudly on a typo'd column rather than silently dropping data.
+        raise ValueError(f"unknown event column(s): {sorted(unknown)}")
+    if not event.get("event_id"):
+        raise ValueError("event_id is required")
+    if not event.get("source"):
+        raise ValueError("source is required ('auto' or 'manual')")
+
+    placeholders = ", ".join("?" for _ in COLUMN_NAMES)
+    columns_sql = ", ".join(COLUMN_NAMES)
+    values = [event.get(name) for name in COLUMN_NAMES]
+
+    conn = connect(db_path)
+    try:
+        conn.execute(
+            f"INSERT INTO events ({columns_sql}) VALUES ({placeholders})",
+            values,
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return event["event_id"]
+
+
+def list_events(route=None, date=None, db_path=None):
+    """Read rows back from the store, newest first, as a list of dicts.
+
+    Optional filters (either, both, or neither):
+      `route` — only rows for this line id, e.g. "38".
+      `date`  — only rows detected on this calendar day, as "YYYY-MM-DD".
+                We match the start of `detected_at`, whose ISO 8601 timestamps
+                begin with the date (e.g. "2026-07-15T14:03:00Z").
+
+    Each row comes back as a plain dict keyed by column name, so callers read
+    `row["route"]` rather than juggling positions.
+    """
+    clauses = []
+    params = []
+    if route is not None:
+        clauses.append("route = ?")
+        params.append(route)
+    if date is not None:
+        clauses.append("detected_at LIKE ?")
+        params.append(f"{date}%")  # match the date prefix of the timestamp
+
+    where_sql = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    query = f"SELECT {', '.join(COLUMN_NAMES)} FROM events{where_sql} ORDER BY detected_at DESC"
+
+    conn = connect(db_path)
+    try:
+        # row_factory makes each row behave like a dict keyed by column name.
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(query, params).fetchall()
+    finally:
+        conn.close()
+    return [dict(row) for row in rows]
+
+
 # Running this file directly sets up the store — handy for a first-time setup
 # and for the T1.1 test ("run it, then inspect the schema").
 if __name__ == "__main__":
