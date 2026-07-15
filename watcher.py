@@ -142,6 +142,123 @@ def fetch_vehicle_states(route):
     return extract_vehicle_states(predictions)
 
 
+@dataclass
+class VehicleDiff:
+    """What changed for one bus that was present in BOTH cycles.
+
+    All fields are plain facts about the change — no judgement about whether it
+    is a curtailment. That interpretation happens in T2.4, which reads these.
+    `stops_dropped` / `stops_added` are sets of naptanIds.
+    """
+    vehicle_id: str
+    old: VehicleState
+    new: VehicleState
+    destination_changed: bool
+    stops_dropped: set = field(default_factory=set)
+    stops_added: set = field(default_factory=set)
+    furthest_changed: bool = False
+
+    @property
+    def has_change(self):
+        """True if anything at all moved — used to decide whether this bus is
+        worth reporting in the cycle diff."""
+        return (
+            self.destination_changed
+            or self.furthest_changed
+            or bool(self.stops_dropped)
+            or bool(self.stops_added)
+        )
+
+    def describe(self):
+        """One-line human summary, for eyeballing during development."""
+        parts = []
+        if self.destination_changed:
+            parts.append(f"destination {self.old.destination!r} -> {self.new.destination!r}")
+        if self.furthest_changed:
+            parts.append(
+                f"reach {self.old.furthest_stop_name()!r} -> {self.new.furthest_stop_name()!r}"
+            )
+        if self.stops_dropped:
+            parts.append(f"-{len(self.stops_dropped)} stops")
+        if self.stops_added:
+            parts.append(f"+{len(self.stops_added)} stops")
+        return f"bus {self.vehicle_id} ({self.new.route}): " + "; ".join(parts)
+
+
+@dataclass
+class CycleDiff:
+    """Everything that changed between the previous cycle and this one."""
+    appeared: dict = field(default_factory=dict)   # vehicleId -> VehicleState (new only)
+    vanished: dict = field(default_factory=dict)   # vehicleId -> VehicleState (gone)
+    changed: dict = field(default_factory=dict)    # vehicleId -> VehicleDiff (moved)
+
+    def summarise(self):
+        lines = [
+            f"cycle diff: {len(self.appeared)} appeared, "
+            f"{len(self.vanished)} vanished, {len(self.changed)} changed"
+        ]
+        for vd in self.changed.values():
+            lines.append("  " + vd.describe())
+        return "\n".join(lines)
+
+
+def _diff_vehicle(old, new):
+    """Compare one bus's old vs new snapshot and return a VehicleDiff."""
+    old_stops = set(old.predicted_stops)
+    new_stops = set(new.predicted_stops)
+    return VehicleDiff(
+        vehicle_id=new.vehicle_id,
+        old=old,
+        new=new,
+        destination_changed=(old.destination != new.destination),
+        stops_dropped=old_stops - new_stops,
+        stops_added=new_stops - old_stops,
+        furthest_changed=(old.furthest_stop != new.furthest_stop),
+    )
+
+
+def diff_cycles(old_states, new_states):
+    """Diff two cycles of {vehicleId: VehicleState}.
+
+    Returns a CycleDiff splitting buses into appeared (new this cycle), vanished
+    (gone this cycle), and changed (in both, with something different). Buses in
+    both cycles with no change are simply omitted.
+    """
+    old_ids = set(old_states)
+    new_ids = set(new_states)
+
+    appeared = {vid: new_states[vid] for vid in new_ids - old_ids}
+    vanished = {vid: old_states[vid] for vid in old_ids - new_ids}
+
+    changed = {}
+    for vid in old_ids & new_ids:
+        vd = _diff_vehicle(old_states[vid], new_states[vid])
+        if vd.has_change:
+            changed[vid] = vd
+
+    return CycleDiff(appeared=appeared, vanished=vanished, changed=changed)
+
+
+class CycleTracker:
+    """Holds the previous cycle's states in memory and diffs each new cycle
+    against it (PRD FR6 — "maintain the previous cycle's state so consecutive
+    cycles can be compared").
+
+    Usage each poll:
+        diff = tracker.update(new_states)
+    The very first update has no previous cycle, so every bus shows up as
+    'appeared' and nothing is 'changed'.
+    """
+
+    def __init__(self):
+        self.previous = {}  # vehicleId -> VehicleState
+
+    def update(self, new_states):
+        diff = diff_cycles(self.previous, new_states)
+        self.previous = new_states  # remember for next time
+        return diff
+
+
 def summarise_states(states, limit=10):
     """Return a short human-readable summary of a cycle's states, for eyeballing
     during development (the T2.2 test / a quick manual run)."""
