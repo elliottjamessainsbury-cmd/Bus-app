@@ -1,13 +1,16 @@
 // app.js — Next Bus web app.
 //
-// A2 scope: render route 38's stops in travel order as a tube-map-style line,
-// each with its stop-letter badge, and make each stop tappable (arrivals wired
-// up in A3). Data comes straight from TfL, anonymously (no key needed).
+// A2: render the route's stops as a tube-map-style line.
+// A3: tap a stop to see the next buses for this route at that stop, with a
+//     live countdown. Data comes straight from TfL, anonymously (no key).
 //
 // Confirmed field shapes (TFL_API_NOTES.md):
 //   /Line/{id}/Route/Sequence/{direction}
 //     -> data.stopPointSequences[0].stopPoint  (list, travel order)
 //        each stop: { id: <naptanId>, name, stopLetter, ... }
+//   /StopPoint/{naptanId}/Arrivals
+//     -> list of predictions, each: { lineId, lineName, destinationName,
+//        timeToStation (seconds), vehicleId, ... }
 
 "use strict";
 
@@ -26,7 +29,8 @@ function setStatus(message, isError) {
   statusEl.style.display = message ? "" : "none";
 }
 
-// Fetch this route's ordered stops for the chosen direction.
+// ---- data ---------------------------------------------------------------
+
 async function fetchRouteStops(route, direction) {
   const url = `${TFL_BASE}/Line/${route}/Route/Sequence/${direction}`;
   const response = await fetch(url);
@@ -37,8 +41,21 @@ async function fetchRouteStops(route, direction) {
   return first.stopPoint || [];
 }
 
-// Turn a stop into its short badge text: the stop letter if present, else the
-// stop name's initials as a fallback.
+// Live arrivals for this route at one stop, soonest first.
+async function fetchStopArrivals(naptanId, route) {
+  const url = `${TFL_BASE}/StopPoint/${naptanId}/Arrivals`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`TfL returned HTTP ${response.status}`);
+  const all = await response.json();
+  const forRoute = (Array.isArray(all) ? all : []).filter(
+    (p) => p.lineId === route
+  );
+  forRoute.sort((a, b) => (a.timeToStation ?? 1e9) - (b.timeToStation ?? 1e9));
+  return forRoute;
+}
+
+// ---- rendering ----------------------------------------------------------
+
 function badgeText(stop) {
   if (stop.stopLetter) return stop.stopLetter;
   const words = (stop.name || "").split(/\s+/).filter(Boolean);
@@ -46,13 +63,22 @@ function badgeText(stop) {
   return words.slice(0, 2).map((w) => w[0].toUpperCase()).join("");
 }
 
-// Build the tube-map line. Each stop becomes a tappable row.
+// Seconds-to-station -> friendly countdown.
+function formatCountdown(seconds) {
+  if (seconds == null) return "";
+  if (seconds < 60) return "due";
+  return `${Math.round(seconds / 60)} min`;
+}
+
 function renderStops(stops) {
   stopsEl.innerHTML = "";
   for (const stop of stops) {
     const li = document.createElement("li");
     li.className = "stop";
     li.dataset.naptan = stop.id || "";
+
+    const row = document.createElement("div");
+    row.className = "stop-row";
 
     const badge = document.createElement("span");
     badge.className = "badge";
@@ -62,24 +88,71 @@ function renderStops(stops) {
     name.className = "stop-name";
     name.textContent = stop.name || "(unnamed stop)";
 
-    li.appendChild(badge);
-    li.appendChild(name);
+    row.appendChild(badge);
+    row.appendChild(name);
+    li.appendChild(row);
 
-    // Selection is visual for now; A3 hangs live arrivals off this tap.
-    li.addEventListener("click", () => onStopTap(stop, li));
+    // The inline arrivals panel, hidden until this stop is tapped.
+    const panel = document.createElement("div");
+    panel.className = "arrivals";
+    li.appendChild(panel);
 
+    row.addEventListener("click", () => onStopTap(stop, li, panel));
     stopsEl.appendChild(li);
   }
 }
 
-// A2 placeholder: just toggle the selected highlight. A3 replaces this with a
-// live arrivals fetch.
-function onStopTap(stop, li) {
+function renderArrivals(panel, arrivals) {
+  panel.innerHTML = "";
+  if (arrivals.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "arrivals-empty";
+    empty.textContent = `No ${ROUTE} buses predicted here in the next ~30 min.`;
+    panel.appendChild(empty);
+    return;
+  }
+  // Show the soonest handful.
+  for (const p of arrivals.slice(0, 5)) {
+    const item = document.createElement("div");
+    item.className = "arrival";
+
+    const dest = document.createElement("span");
+    dest.className = "arrival-dest";
+    dest.textContent = `to ${p.destinationName || "?"}`;
+
+    const when = document.createElement("span");
+    when.className = "arrival-when";
+    when.textContent = formatCountdown(p.timeToStation);
+
+    item.appendChild(dest);
+    item.appendChild(when);
+    panel.appendChild(item);
+  }
+}
+
+// ---- interaction --------------------------------------------------------
+
+async function onStopTap(stop, li, panel) {
   const wasSelected = li.classList.contains("selected");
-  document.querySelectorAll(".stop.selected").forEach((el) =>
-    el.classList.remove("selected")
-  );
-  if (!wasSelected) li.classList.add("selected");
+
+  // Collapse any other open stop.
+  document.querySelectorAll(".stop.selected").forEach((el) => {
+    el.classList.remove("selected");
+    const p = el.querySelector(".arrivals");
+    if (p) p.innerHTML = "";
+  });
+
+  if (wasSelected) return; // tapping the open stop closes it
+
+  li.classList.add("selected");
+  panel.innerHTML = '<p class="arrivals-loading">Loading…</p>';
+  try {
+    const arrivals = await fetchStopArrivals(stop.id, ROUTE);
+    // Guard against a race if the user tapped elsewhere meanwhile.
+    if (li.classList.contains("selected")) renderArrivals(panel, arrivals);
+  } catch (err) {
+    panel.innerHTML = `<p class="arrivals-empty">Couldn't load times: ${err.message}</p>`;
+  }
 }
 
 async function init() {

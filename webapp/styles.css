@@ -63,17 +63,23 @@ main { padding: 4px 12px 40px; }
 
 .stop {
   position: relative;
+  border-bottom: 1px solid var(--line);
+}
+
+/* the tappable row: badge + name */
+.stop-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 12px 4px 12px 34px;   /* left room for the rail + node */
-  border-bottom: 1px solid var(--line);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
-/* the node dot sitting on the rail */
-.stop::before {
+/* the node dot sitting on the rail (anchored to the row so it stays put
+   when the arrivals panel expands below) */
+.stop-row::before {
   content: "";
   position: absolute;
   left: 9px;
@@ -86,10 +92,27 @@ main { padding: 4px 12px 40px; }
   border: 3px solid var(--node-ring);
   z-index: 1;
 }
-.stop.selected::before {
+.stop.selected .stop-row::before {
   border-color: var(--selected);
   background: var(--selected);
 }
+
+/* the inline live-arrivals panel */
+.arrivals { padding: 0 4px 4px 34px; }
+.arrivals-loading,
+.arrivals-empty { color: var(--muted); font-size: 0.9rem; margin: 4px 0 12px; }
+
+.arrival {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px dashed var(--line);
+}
+.arrival:first-of-type { border-top: none; }
+.arrival-dest { color: var(--ink); font-size: 1rem; }
+.arrival-when { color: var(--tfl-red); font-weight: 700; font-size: 1rem; white-space: nowrap; }
 
 /* the red rounded stop-letter badge */
 .badge {
