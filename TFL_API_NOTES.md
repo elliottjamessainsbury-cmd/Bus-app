@@ -61,10 +61,38 @@ Comparing one cycle to the next for the same `vehicleId` gives the §9 triggers:
 - **Trigger B (predictions retreat):** downstream `naptanId`s it predicted for
   disappear while upstream ones remain — its reach shrinks back up the line.
 
+## `GET /Line/{id}/Route/Sequence/{direction}`
+
+Confirmed live for route `38`, both directions, on 2026-07-15. `{direction}` is
+`outbound` or `inbound` (same words the arrivals feed uses). Returns a **dict**.
+
+The ordered stops live at:
+
+    stopPointSequences[0].stopPoint   # a list, in travel order
+
+Each entry in that `stopPoint` list is a stop with (fields we use):
+
+| Field | Example | Use |
+|---|---|---|
+| `id` | `"490009035E"` | The stop's **naptanId** — same id style as the arrivals `naptanId`, so they match directly. |
+| `name` | `"Clapton Pond"` | Readable stop name. |
+
+The **terminus is the last entry** of the `stopPoint` list. Confirmed:
+- outbound (44 stops): first = Clapton Pond, **last = Victoria Bus Station
+  (`490014050D`)**.
+- inbound (45 stops): first = Victoria Bus Station, **last = Lea Bridge
+  Roundabout (`490009035L`)**.
+
+### Gotchas / notes
+- Naptan ids are **direction- and side-specific** (opposite-side stops have
+  different ids), so match arrivals→sequence by the exact `id`, per direction.
+- Each stop also carries a `lines` list (every route serving it), `stationId` /
+  `parentId` / `topMostParentId` (hub-level ids — do NOT use these for matching;
+  use `id`), plus `lat`/`lon`.
+- `stopPointSequences` can in principle hold more than one sequence (branching
+  routes); route 38 has exactly 1 per direction. Our geometry helper treats the
+  last stop of *each* sequence as a terminus, to be safe on branched routes.
+
 ## Still to confirm (future inspection spikes)
-- **Route ordered stop sequence** — needed to know which stop is "earlier" vs
-  "further along", and where the scheduled terminus is (for the normal-terminus
-  exclusion). Likely `GET /Line/{id}/Route/Sequence/{direction}`. Confirm its
-  shape before building the heuristic (T2.4).
 - **Route disruption text** and **road disruption polygons** — for the Enricher
   (Slice 4).
