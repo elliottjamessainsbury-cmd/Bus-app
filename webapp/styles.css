@@ -1,0 +1,54 @@
+/* Minimal, phone-first styling. We keep A1 plain — the tube-map look comes in
+   A2. The goal here is just to read clearly on a phone. */
+
+:root {
+  --tfl-red: #dc241f;
+  --ink: #1c1c1c;
+  --muted: #6b6b6b;
+  --line: #e4e4e4;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--ink);
+  background: #fff;
+}
+
+.app-header {
+  background: var(--tfl-red);
+  color: #fff;
+  padding: 18px 16px;
+  position: sticky;
+  top: 0;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+main { padding: 8px 16px 32px; }
+
+.status {
+  color: var(--muted);
+  font-size: 0.95rem;
+  padding: 8px 0;
+}
+.status.error { color: var(--tfl-red); font-weight: 600; }
+
+.stops {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.stops li {
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--line);
+  font-size: 1.05rem;
+}

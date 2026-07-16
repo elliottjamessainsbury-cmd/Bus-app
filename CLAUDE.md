@@ -6,19 +6,32 @@ guardrails that should hold in every session.
 
 ## What this project is
 
-A single-operator **validation instrument** that watches many London bus routes,
-flags buses that appear to terminate early ("curtailment"), checks whether a road
-or route closure could explain each one, and lets the operator log real-world
-observations. Its only purpose is to gather evidence to decide whether a
-curtailment feature is worth building. It is a precursor to a London bus app —
-not the app itself.
+The project now has **two tracks that live side by side in this repo**:
+
+1. **The validation instrument** (`config.py`, `tfl_client.py`, `watcher.py`,
+   `detector.py`, `route_geometry.py`, `store.py`, `run_watcher.py`) — a
+   single-operator research tool that watches London bus routes, flags buses that
+   appear to terminate early ("curtailment"), and gathers evidence on whether the
+   curtailment signal is trustworthy. This track stays UI-free and unchanged in
+   spirit by the rules below. Source of truth: `PRD-bus-curtailment-validation.md`.
+
+2. **The app** (`webapp/`) — a deliberately simple, personal web app (PWA) that
+   shows live "next bus" times straight from TfL: pick a route, see its stops as
+   a line, tap a stop, see what's coming. Added on the operator's explicit
+   decision (2026-07). Source of truth: `PRD-app.md`.
+
+The tracks are kept **separate**: the app does not depend on the curtailment
+engine yet. The instrument keeps improving the curtailment/diversion signal under
+the hood; if that research pays off, we bridge the two later.
 
 ## Golden rules (do not violate without checking first)
 
-- **This is a measuring instrument, not the product.** Do NOT build consumer UI,
-  user-facing alerts or notifications, saved-routes / saved-stops features, map
-  rendering, or styling. If a task starts heading that way, stop and confirm.
-  (See PRD §4 and §13.)
+- **Keep the two tracks separate, and keep the *instrument* track UI-free.** The
+  instrument (Watcher/detector/store) stays a measuring tool — no consumer UI,
+  alerts, saved-routes, map rendering, or styling inside it. Consumer UI now
+  lives **only** in `webapp/` (the app track), and stays deliberately simple —
+  see `PRD-app.md`. If instrument work starts sprouting UI, or app work starts
+  reaching into the detector, stop and confirm. (See PRD §4 and §13.)
 - **TfL Unified API is the only live-data source.** Do not add Google Maps
   Platform or commercial roadworks platforms (e.g. Causeway / one.network) as
   data sources. (See PRD §14.)

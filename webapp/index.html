@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <!-- viewport: makes the page size itself to the phone screen, not zoom out -->
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Next Bus</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1 id="header-title">Route 38 &middot; towards Clapton Pond</h1>
+  </header>
+
+  <main>
+    <!-- A status line for loading / error messages. -->
+    <p id="status" class="status">Loading stops…</p>
+
+    <!-- The ordered list of stops gets built here by app.js. -->
+    <ol id="stops" class="stops"></ol>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
