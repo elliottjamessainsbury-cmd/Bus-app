@@ -1,54 +1,110 @@
-/* Minimal, phone-first styling. We keep A1 plain — the tube-map look comes in
-   A2. The goal here is just to read clearly on a phone. */
+/* Next Bus — phone-first styling.
+   A2: a tube-map-style vertical line of stops with stop-letter badges. */
 
 :root {
   --tfl-red: #dc241f;
   --ink: #1c1c1c;
   --muted: #6b6b6b;
   --line: #e4e4e4;
+  --rail: #dc241f;      /* the vertical route line colour */
+  --node: #ffffff;
+  --node-ring: #b7b7b7;
+  --selected: #1f6fe0;  /* blue node for the selected stop */
 }
 
 * { box-sizing: border-box; }
 
+html, body { margin: 0; }
+
 body {
-  margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: var(--ink);
   background: #fff;
+  -webkit-font-smoothing: antialiased;
 }
 
 .app-header {
   background: var(--tfl-red);
   color: #fff;
-  padding: 18px 16px;
+  padding: 16px;
   position: sticky;
   top: 0;
+  z-index: 5;
 }
+.app-header h1 { margin: 0; font-size: 1.2rem; font-weight: 800; }
+.header-sub { margin: 2px 0 0; font-size: 0.95rem; opacity: 0.9; }
 
-.app-header h1 {
-  margin: 0;
-  font-size: 1.15rem;
-  font-weight: 700;
-  text-align: center;
-}
+main { padding: 4px 12px 40px; }
 
-main { padding: 8px 16px 32px; }
-
-.status {
-  color: var(--muted);
-  font-size: 0.95rem;
-  padding: 8px 0;
-}
+.status { color: var(--muted); font-size: 0.9rem; padding: 8px 4px; }
 .status.error { color: var(--tfl-red); font-weight: 600; }
 
+/* ---- the stops line ---------------------------------------------------
+   Each <li> is a row: [ node on the rail ] [ letter badge ] [ name ].
+   A single continuous vertical rail is drawn behind the nodes. */
 .stops {
   list-style: none;
   margin: 0;
   padding: 0;
+  position: relative;
 }
 
-.stops li {
-  padding: 14px 4px;
-  border-bottom: 1px solid var(--line);
-  font-size: 1.05rem;
+/* the continuous vertical rail */
+.stops::before {
+  content: "";
+  position: absolute;
+  left: 15px;             /* centre of the node column */
+  top: 12px;
+  bottom: 12px;
+  width: 4px;
+  background: var(--rail);
+  border-radius: 2px;
 }
+
+.stop {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 4px 12px 34px;   /* left room for the rail + node */
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* the node dot sitting on the rail */
+.stop::before {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--node);
+  border: 3px solid var(--node-ring);
+  z-index: 1;
+}
+.stop.selected::before {
+  border-color: var(--selected);
+  background: var(--selected);
+}
+
+/* the red rounded stop-letter badge */
+.badge {
+  flex: 0 0 auto;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 6px;
+  border-radius: 7px;
+  background: var(--tfl-red);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stop-name { font-size: 1.05rem; line-height: 1.2; }

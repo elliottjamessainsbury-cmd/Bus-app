@@ -1,60 +1,87 @@
 // app.js — Next Bus web app.
 //
-// A1 scope: fetch route 38's stops in travel order, straight from TfL, and list
-// them. This also proves the browser can call the TfL API directly (CORS) with
-// no API key (anonymous access is fine for personal use).
+// A2 scope: render route 38's stops in travel order as a tube-map-style line,
+// each with its stop-letter badge, and make each stop tappable (arrivals wired
+// up in A3). Data comes straight from TfL, anonymously (no key needed).
 //
-// Field shapes are the ones we confirmed live in TFL_API_NOTES.md:
+// Confirmed field shapes (TFL_API_NOTES.md):
 //   /Line/{id}/Route/Sequence/{direction}
-//     -> data.stopPointSequences[0].stopPoint  (a list, in travel order)
-//        each stop: { id: <naptanId>, name: <stop name>, ... }
+//     -> data.stopPointSequences[0].stopPoint  (list, travel order)
+//        each stop: { id: <naptanId>, name, stopLetter, ... }
 
 "use strict";
 
-// One place for the API base and the config this screen uses. Later tasks make
-// route/direction user-selectable (A4); for now they are fixed.
 const TFL_BASE = "https://api.tfl.gov.uk";
 const ROUTE = "38";
 const DIRECTION = "outbound";
 
-// Grab the page elements we write into.
 const statusEl = document.getElementById("status");
 const stopsEl = document.getElementById("stops");
+const headerTitleEl = document.getElementById("header-title");
+const headerSubEl = document.getElementById("header-sub");
 
-// Small helper: show a message in the status line, optionally as an error.
 function setStatus(message, isError) {
-  statusEl.textContent = message;
+  statusEl.textContent = message || "";
   statusEl.classList.toggle("error", Boolean(isError));
+  statusEl.style.display = message ? "" : "none";
 }
 
 // Fetch this route's ordered stops for the chosen direction.
 async function fetchRouteStops(route, direction) {
   const url = `${TFL_BASE}/Line/${route}/Route/Sequence/${direction}`;
   const response = await fetch(url);
-  if (!response.ok) {
-    // e.g. 429 (rate limited) or 404 (bad route/direction).
-    throw new Error(`TfL returned HTTP ${response.status}`);
-  }
+  if (!response.ok) throw new Error(`TfL returned HTTP ${response.status}`);
   const data = await response.json();
-
-  // Dig out the ordered stop list, defensively.
   const sequences = data.stopPointSequences || [];
   const first = sequences[0] || {};
-  const stops = first.stopPoint || [];
-  return stops;
+  return first.stopPoint || [];
 }
 
-// Render the stops as list items.
+// Turn a stop into its short badge text: the stop letter if present, else the
+// stop name's initials as a fallback.
+function badgeText(stop) {
+  if (stop.stopLetter) return stop.stopLetter;
+  const words = (stop.name || "").split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "•";
+  return words.slice(0, 2).map((w) => w[0].toUpperCase()).join("");
+}
+
+// Build the tube-map line. Each stop becomes a tappable row.
 function renderStops(stops) {
   stopsEl.innerHTML = "";
   for (const stop of stops) {
     const li = document.createElement("li");
-    li.textContent = stop.name || "(unnamed stop)";
+    li.className = "stop";
+    li.dataset.naptan = stop.id || "";
+
+    const badge = document.createElement("span");
+    badge.className = "badge";
+    badge.textContent = badgeText(stop);
+
+    const name = document.createElement("span");
+    name.className = "stop-name";
+    name.textContent = stop.name || "(unnamed stop)";
+
+    li.appendChild(badge);
+    li.appendChild(name);
+
+    // Selection is visual for now; A3 hangs live arrivals off this tap.
+    li.addEventListener("click", () => onStopTap(stop, li));
+
     stopsEl.appendChild(li);
   }
 }
 
-// Kick things off when the page loads.
+// A2 placeholder: just toggle the selected highlight. A3 replaces this with a
+// live arrivals fetch.
+function onStopTap(stop, li) {
+  const wasSelected = li.classList.contains("selected");
+  document.querySelectorAll(".stop.selected").forEach((el) =>
+    el.classList.remove("selected")
+  );
+  if (!wasSelected) li.classList.add("selected");
+}
+
 async function init() {
   try {
     const stops = await fetchRouteStops(ROUTE, DIRECTION);
@@ -63,12 +90,14 @@ async function init() {
       return;
     }
     renderStops(stops);
-    setStatus(`Route ${ROUTE} — ${stops.length} stops (${DIRECTION}).`);
+    const terminus = stops[stops.length - 1];
+    headerTitleEl.textContent = `Route ${ROUTE}`;
+    headerSubEl.textContent = `towards ${terminus.name || DIRECTION}`;
+    setStatus("");
   } catch (err) {
-    // The most likely first-run failure is a CORS block; surface it plainly.
     setStatus(
       `Could not load stops: ${err.message}. ` +
-        `If this looks like a CORS/network error, tell Claude — we'll add a tiny proxy.`,
+        `If this looks like a CORS/network error, tell Claude.`,
       true
     );
   }
