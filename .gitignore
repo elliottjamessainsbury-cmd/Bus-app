@@ -22,3 +22,5 @@ env/
 # ...but allow small, committed CSV fixtures used by tests (the negation must
 # come after the ignore rule above to take effect).
 !tests/fixtures/*.csv
+# ...and the manual-log template is source (a canonical column spec), not data.
+!manual_log_template.csv

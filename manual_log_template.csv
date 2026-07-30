@@ -1,0 +1,4 @@
+observed_at,route,direction,last_seen_stop,expected_terminus,apparent_terminus,event_type,notes
+2026-07-10 18:05,38,inbound,Angel,Clapton Pond,Islington,curtailed,"Driver announced terminating at Islington - everyone off"
+2026-07-12 08:40,55,outbound,Clerkenwell Green,Oxford Circus,,diverted,"Went around roadworks near Old Street but ran full length"
+2026-07-14 17:20,21,inbound,,Lewisham,New Cross,curtailed,"Notification from app said terminating early - no reason given"
