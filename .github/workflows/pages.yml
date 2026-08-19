@@ -1,0 +1,42 @@
+# Publishes the static web app (the webapp/ folder) to GitHub Pages.
+# The app is pure static files calling TfL anonymously, so there is nothing
+# secret to expose. Site URL: https://elliottjamessainsbury-cmd.github.io/Bus-app/
+name: Deploy webapp to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "webapp/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch: {}   # lets us trigger a deploy manually from the Actions tab
+
+# Permissions the deploy needs (least-privilege).
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one Pages deploy at a time; a newer run supersedes an in-flight one.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload the webapp folder as the site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: webapp
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
