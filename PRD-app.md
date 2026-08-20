@@ -1,8 +1,10 @@
-# PRD: Simple "Next Bus" Web App
+# PRD: NONSTOP — London bus web app
 
+**Name:** NONSTOP
 **Status:** Draft, actively building
 **Author:** Elliott
 **Type:** Personal web app (PWA) — the consumer product track (see CLAUDE.md)
+**Live:** https://elliottjamessainsbury-cmd.github.io/Bus-app/ (GitHub Pages)
 **Relationship to the instrument:** independent for now; shares only the TfL data
 source. The curtailment engine is NOT wired in yet.
 
@@ -63,3 +65,53 @@ surfacing. Deliberately minimal.
 
 Saved stops, more routes, surfacing the curtailment/diversion signal once the
 instrument proves it's worth showing, and possibly a native iOS build.
+
+---
+
+## 7. v2 direction — NONSTOP landing page + multi-route (2026-08)
+
+Operator decision (2026-08): give the app a real front door and a name.
+
+### 7.1 Branding
+- App name **NONSTOP**, shown **top-left** of the landing page.
+
+### 7.2 Landing page structure (top to bottom)
+1. **NONSTOP** wordmark, top-left.
+2. **Header copy** (verbatim):
+   > Taking buses in London is painful.
+   > Stopping early. Diverting without warning. Stops randomly closed. Citymapper,
+   > Google Maps and TfL show you information that isn't always right.
+   > The speaker on the bus is muffled and nobody can hear what's going in.
+   > Wasted time, being late, not sure what's going on and frustration.
+   > NONSTOP shows you the information that no one else does. Find your stop, get up
+   > to date, and understand how to navigate the city like a pro.
+3. **Prompt copy** (verbatim), directly above the route buttons:
+   > Choose your local stop or bus route to see live, accurate updates.
+4. **Route buttons: 55 and 38.** Selecting one reveals **the exact stop-line UI we
+   already have** (A2/A3), for that route, underneath. No redesign of that view.
+
+### 7.3 Closed bus stops (new feature — pending data verification)
+- Real London closed stops are usually the yellow "BUS STOP CLOSED" sign.
+- In the UI, a **closed stop's badge turns yellow** (replace the red tile with a
+  yellow tile, keep the stop letter) instead of red.
+- **Data source is unconfirmed:** likely TfL StopPoint/Line disruption endpoints.
+  A live inspection spike must confirm whether TfL exposes stop closures and the
+  exact field shapes BEFORE we build this (golden rule). This is the first use of
+  TfL *disruption* data in the app, and it is a TfL *fact* (safe to show), not our
+  inference — consistent with the "surface facts, gate inference" principle.
+
+### 7.4 Copy note
+Header says "NONSTOP Shows" — corrected to "NONSTOP shows" (sentence case) unless
+the operator wants the emphatic capital.
+
+## 8. v2 task list (atomic, one commit each)
+
+- **A7.** Landing page shell: NONSTOP wordmark, header + prompt copy, 55/38 route
+  buttons. Static, no data yet.
+- **A8.** Multi-route: selecting a route button loads the existing stop-line UI
+  (A2/A3) for that route (parametrise the current hard-coded route 38). Adds 55.
+- **A9 (spike).** Confirm live whether/how TfL exposes **closed bus stops**
+  (StopPoint/Line disruption shapes). Record in `TFL_API_NOTES.md`.
+- **A10.** If A9 confirms: colour closed stops' badges **yellow** in the stop line.
+- Existing **A4/A5/A6** (direction toggle, auto-refresh/polish, PWA install) still
+  apply and fold in around the above.
